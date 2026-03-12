@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Ares Ignition (Base)",
+    "hydraCode": "osc(4, 0.1, 1.2).color(1,0,0.2).kaleid(4).out()",
+    "strudelCode": "stack(sine().freq(144.72).gain(0.12), note(\"a1 c2 e2 g2\").saw().slow(4)).reverb(0.6).out()",
+    "llmPrompt": "Summon a crimson ritual ring with glitching halo."
+  },
+  {
+    "name": "Ghostline Drift",
+    "hydraCode": "osc(7,-0.12).modulate(voronoi(1)).diff(voronoi(1)).out()",
+    "strudelCode": "note(\"c2 eb2 g2 bb2\").sine().slow(4).out()",
+    "llmPrompt": "Ethereal drift, pastel glitch, whispering edges."
+  }
+]

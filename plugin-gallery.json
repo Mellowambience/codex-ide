@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Ares FX Pack",
+    "version": "0.1.0",
+    "panels": [
+      {
+        "id": "ares-fx",
+        "title": "Ares FX",
+        "type": "markdown",
+        "content": "Controls for crimson glitch layers:\\n- osc(4)\\n- kaleid(4)\\n- color(1,0,0.2)"
+      }
+    ]
+  },
+  {
+    "name": "Ritual Notes",
+    "version": "0.1.0",
+    "panels": [
+      {
+        "id": "ritual-notes",
+        "title": "Ritual Notes",
+        "type": "text",
+        "content": "Respira. Ascende. Ignis."
+      }
+    ]
+  }
+]

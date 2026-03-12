@@ -264,10 +264,16 @@
                             <input id="gallery-url" class="px-2 py-1 bg-gray-900 border border-gray-700 rounded text-sm flex-1" placeholder="Preset gallery URL (JSON)">
                             <button class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded" onclick="loadGallery()">Load Gallery</button>
                         </div>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <input id="plugin-url" class="px-2 py-1 bg-gray-900 border border-gray-700 rounded text-sm flex-1" placeholder="Plugin gallery URL (JSON)">
+                            <button class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded" onclick="loadPlugins()">Load Plugins</button>
+                        </div>
                         <div class="text-xs text-gray-400 mb-1">My Presets</div>
                         <div id="preset-list" class="grid grid-cols-1 gap-2"></div>
                         <div class="text-xs text-gray-400 mt-3 mb-1">Gallery Presets</div>
                         <div id="gallery-list" class="grid grid-cols-1 gap-2"></div>
+                        <div class="text-xs text-gray-400 mt-3 mb-1">Plugin Panels</div>
+                        <div id="plugin-list" class="grid grid-cols-1 gap-2"></div>
                     </div>
 
                     <div class="bg-gray-800 p-4 rounded border border-gray-700">
@@ -500,6 +506,42 @@
             loadPresetList();
         }
 
+        async function loadPlugins() {
+            const url = document.getElementById('plugin-url').value.trim();
+            if (!url) return;
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (!Array.isArray(data)) return;
+                window._pluginManifests = data;
+                renderPlugins();
+            } catch (e) {
+                console.error('Plugin load failed', e);
+            }
+        }
+
+        function renderPlugins() {
+            const list = document.getElementById('plugin-list');
+            const data = window._pluginManifests || [];
+            list.innerHTML = '';
+            data.forEach((plugin, idx) => {
+                const el = document.createElement('div');
+                el.className = 'p-2 rounded border border-gray-700 bg-gray-900';
+                const title = document.createElement('div');
+                title.className = 'text-sm text-gray-300 font-bold mb-1';
+                title.textContent = `${plugin.name || 'Plugin'} v${plugin.version || '0.0.0'}`;
+                el.appendChild(title);
+                (plugin.panels || []).forEach((panel) => {
+                    const p = document.createElement('div');
+                    p.className = 'text-xs text-gray-400 whitespace-pre-wrap';
+                    // Safe rendering: text only, no HTML
+                    p.textContent = `${panel.title || 'Panel'}: ${panel.content || ''}`;
+                    el.appendChild(p);
+                });
+                list.appendChild(el);
+            });
+        }
+
         // --- 2. AUDIO SAFETY CHAIN ---
         let audioCtx;
         let masterLimiter;
@@ -672,6 +714,11 @@
             initHydra();
             updateQuestUI();
             loadPresetList();
+            // default gallery hints
+            const galleryUrl = document.getElementById('gallery-url');
+            const pluginUrl = document.getElementById('plugin-url');
+            if (galleryUrl) galleryUrl.value = 'preset-gallery.json';
+            if (pluginUrl) pluginUrl.value = 'plugin-gallery.json';
         });
 
         function switchTab(tab) {
