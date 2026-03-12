@@ -127,7 +127,7 @@
                 <span id="xp-display" class="font-bold">0 XP</span>
             </div>
             
-            <button onclick="toggleQuests()" class="text-gray-400 hover:text-white transition">
+            <button onclick="toggleQuests()" aria-label="Open Quests" class="text-gray-400 hover:text-white transition">
                 <i class="ph ph-scroll text-xl"></i>
             </button>
         </div>
@@ -187,7 +187,7 @@
             <div id="quest-overlay" class="absolute inset-0 bg-black/90 backdrop-blur-md p-8 hidden flex-col z-30">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="ritual-font text-3xl text-yellow-500">Cursus (Quests)</h2>
-                    <button onclick="toggleQuests()" class="text-gray-400 hover:text-white">
+                    <button onclick="toggleQuests()" aria-label="Close Quests" class="text-gray-400 hover:text-white">
                         <i class="ph ph-x text-2xl"></i>
                     </button>
                 </div>
