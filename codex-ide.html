@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codex IDE | Ares Veil</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Hydra Synth -->
+    <script src="https://unpkg.com/hydra-synth"></script>
+    <!-- MediaPipe Face Landmarker -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
+    
+    <!-- Phosphor Icons for Gamified/Ritual UI -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Monaco Editor Loader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+
+    <!-- Strudel (TidalCycles-in-JS) -->
+    <script src="https://cdn.jsdelivr.net/npm/@strudel.cycles/umd/strudel.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Fira+Code:wght@400;600&display=swap');
+
+        :root {
+            --bg-dark: #0a0a0c;
+            --panel-bg: #111115;
+            --accent: #8b5cf6; /* Violet */
+            --danger: #ef4444;
+            --text-main: #e2e8f0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Fira Code', monospace;
+            overflow: hidden;
+        }
+
+        .ritual-font {
+            font-family: 'Cinzel', serif;
+        }
+
+        .pane {
+            background-color: var(--panel-bg);
+            border: 1px solid #2d2d3a;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* LUFS Meter styling */
+        .meter-container {
+            width: 100%;
+            height: 12px;
+            background: #27272a;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .meter-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #10b981 0%, #eab308 70%, #ef4444 100%);
+            transition: width 0.05s ease-out;
+        }
+
+        #hydra-canvas {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            image-rendering: pixelated;
+        }
+        
+        .tab-btn.active {
+            border-bottom: 2px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .glass-panel {
+            background: rgba(17, 17, 21, 0.85);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid #2d2d3a;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col text-sm">
+
+    <!-- Top Navigation / Safety Bar -->
+    <header class="flex justify-between items-center p-3 glass-panel z-20">
+        <div class="flex items-center gap-4">
+            <h1 class="ritual-font text-2xl font-bold text-purple-500 tracking-wider">CODEX<span class="text-gray-400 text-lg">::ARES</span></h1>
+            
+            <!-- Audio Safety Controls -->
+            <div class="flex items-center gap-2 ml-4 bg-gray-900 p-1 rounded-md border border-gray-700">
+                <button id="btn-start" class="px-3 py-1 rounded bg-purple-900 hover:bg-purple-700 text-purple-100 transition-colors flex items-center gap-2" onclick="initAudio()">
+                    <i class="ph ph-play"></i> Incipe (Start)
+                </button>
+                <button id="btn-stop" class="px-3 py-1 rounded bg-red-900 hover:bg-red-700 text-red-100 transition-colors flex items-center gap-2" onclick="stopAll()">
+                    <i class="ph ph-stop"></i> Silentium (Stop All)
+                </button>
+            </div>
+        </div>
+
+        <!-- Gamification & Stats -->
+        <div class="flex items-center gap-6">
+            <div class="flex flex-col w-48">
+                <div class="flex justify-between text-xs mb-1 text-gray-400">
+                    <span>Master Out (LUFS proxy)</span>
+                    <span id="meter-value">-∞ dB</span>
+                </div>
+                <div class="meter-container">
+                    <div id="meter-fill" class="meter-fill"></div>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2 text-yellow-500 bg-gray-900 px-3 py-1.5 rounded border border-gray-800" title="Experientia (Experience)">
+                <i class="ph ph-star-four weight-fill"></i>
+                <span id="xp-display" class="font-bold">0 XP</span>
+            </div>
+            
+            <button onclick="toggleQuests()" class="text-gray-400 hover:text-white transition">
+                <i class="ph ph-scroll text-xl"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Pane: Editors -->
+        <div class="w-1/2 flex flex-col pane z-10">
+            <!-- Tabs -->
+            <div class="flex bg-gray-900 border-b border-gray-800">
+                <button class="tab-btn active px-4 py-2 font-semibold transition" onclick="switchTab('hydra')">
+                    <i class="ph ph-eye"></i> Visio (Hydra)
+                </button>
+                <button class="tab-btn px-4 py-2 font-semibold transition" onclick="switchTab('strudel')">
+                    <i class="ph ph-waveform"></i> Sonus (Strudel)
+                </button>
+                <button class="tab-btn px-4 py-2 font-semibold transition" onclick="switchTab('llm')">
+                    <i class="ph ph-brain"></i> Oraculum (LLM)
+                </button>
+                <button class="tab-btn px-4 py-2 font-semibold transition" onclick="switchTab('studio')">
+                    <i class="ph ph-sliders"></i> Atelier (Studio)
+                </button>
+            </div>
+            
+            <!-- Monaco Container -->
+            <div id="editor-container" class="flex-1 w-full relative"></div>
+            
+            <!-- Editor Controls -->
+            <div class="p-2 bg-gray-900 border-t border-gray-800 flex justify-between items-center">
+                <div class="flex gap-2">
+                    <button class="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-gray-200 transition" onclick="evaluateCode()">
+                        <i class="ph ph-lightning"></i> Eval (Ctrl+Enter)
+                    </button>
+                    <span id="save-status" class="text-xs text-gray-500 py-2">Auto-saved</span>
+                </div>
+                
+                <!-- LLM Settings (visible conditionally) -->
+                <div id="llm-controls" class="hidden flex items-center gap-2">
+                    <label class="text-xs text-gray-400 flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="auto-exec-toggle" class="form-checkbox bg-gray-800 border-gray-700 rounded text-purple-500">
+                        Auto-Exec Oraculum
+                    </label>
+                    <button class="px-3 py-1.5 bg-purple-900/50 hover:bg-purple-800 rounded text-purple-200 transition text-xs" onclick="invokeLLM()">
+                        Invoke
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Pane: Output (Hydra Canvas & Quests Overlay) -->
+        <div class="w-1/2 relative bg-black border-l border-gray-800 flex flex-col">
+            <canvas id="hydra-canvas"></canvas>
+            
+            <!-- Quest Overlay (Hidden by default) -->
+            <div id="quest-overlay" class="absolute inset-0 bg-black/90 backdrop-blur-md p-8 hidden flex-col z-30">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="ritual-font text-3xl text-yellow-500">Cursus (Quests)</h2>
+                    <button onclick="toggleQuests()" class="text-gray-400 hover:text-white">
+                        <i class="ph ph-x text-2xl"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 gap-4 overflow-y-auto" id="quest-list">
+                    <!-- Quests injected via JS -->
+                </div>
+            </div>
+
+            <!-- LLM Chat Overlay (Hidden by default, shown on LLM tab) -->
+            <div id="llm-output" class="absolute inset-0 bg-gray-900/95 p-4 hidden flex-col z-20 overflow-y-auto border-t border-gray-800">
+                <h3 class="ritual-font text-purple-400 border-b border-purple-900/50 pb-2 mb-4">Oraculum Responses</h3>
+                <div id="chat-history" class="flex flex-col gap-3 font-sans text-gray-300">
+                    <div class="bg-gray-800 p-3 rounded border border-gray-700">
+                        <em>"Awaiting your invocation..."</em>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Studio Overlay (Hidden by default, shown on Studio tab) -->
+            <div id="studio-panel" class="absolute inset-0 bg-gray-900/95 p-4 hidden flex-col z-20 overflow-y-auto border-t border-gray-800">
+                <h3 class="ritual-font text-purple-400 border-b border-purple-900/50 pb-2 mb-4">Atelier Systems</h3>
+                <div class="grid grid-cols-1 gap-4 font-sans text-gray-300">
+                    <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                        <h4 class="font-bold mb-2">Capture (Riverside-style)</h4>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <button class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded" onclick="initCapture()">Init Devices</button>
+                            <button class="px-3 py-1.5 bg-purple-800 hover:bg-purple-700 rounded" onclick="startRecording()">Start Recording</button>
+                            <button class="px-3 py-1.5 bg-red-800 hover:bg-red-700 rounded" onclick="stopRecording()">Stop Recording</button>
+                        </div>
+                        <div class="relative">
+                            <video id="capture-preview" class="w-full rounded border border-gray-700 bg-black" autoplay muted playsinline></video>
+                            <canvas id="mask-overlay" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-2" id="record-status">Idle</div>
+                        <a id="download-link" class="text-purple-300 text-xs underline hidden" href="#" download="codex-capture.webm">Download recording</a>
+                    </div>
+
+                    <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                        <h4 class="font-bold mb-2">Virtual Camera (Legal Path)</h4>
+                        <p class="text-sm text-gray-400">
+                            Browser-only virtual cam is not possible. For legal output, use OBS Virtual Camera or a native module in the desktop app.
+                        </p>
+                    </div>
+
+                    <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                        <h4 class="font-bold mb-2">Avatar / Mask Tracking</h4>
+                        <p class="text-sm text-gray-400">MediaPipe tracking enabled. Toggle to show landmarks overlay.</p>
+                        <button class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded" onclick="toggleTracking()">Toggle Tracking (stub)</button>
+                        <div class="text-xs text-gray-400 mt-2" id="track-status">Tracking: Off</div>
+                        <canvas id="track-overlay" class="w-full rounded border border-gray-700 bg-black mt-2" style="height:180px;"></canvas>
+                    </div>
+
+                    <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                        <h4 class="font-bold mb-2">Live Code Engines</h4>
+                        <div class="flex gap-2 flex-wrap">
+                            <button class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded" onclick="openStrudel()">Open Strudel</button>
+                            <button class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded" onclick="openHydra()">Open Hydra</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                        <h4 class="font-bold mb-2">Creator Lab (Share + Mod)</h4>
+                        <p class="text-sm text-gray-400">Save, export, and import ritual presets. This is the base for community mods.</p>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <input id="preset-name" class="px-2 py-1 bg-gray-900 border border-gray-700 rounded text-sm" placeholder="Preset name">
+                            <button class="px-3 py-1.5 bg-purple-800 hover:bg-purple-700 rounded" onclick="savePreset()">Save Preset</button>
+                            <button class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded" onclick="exportPreset()">Export JSON</button>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <textarea id="import-json" class="w-full bg-gray-900 border border-gray-700 rounded text-sm p-2" rows="3" placeholder="Paste preset JSON here"></textarea>
+                            <button class="px-3 py-1.5 bg-green-800 hover:bg-green-700 rounded" onclick="importPreset()">Import JSON</button>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <input id="gallery-url" class="px-2 py-1 bg-gray-900 border border-gray-700 rounded text-sm flex-1" placeholder="Preset gallery URL (JSON)">
+                            <button class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded" onclick="loadGallery()">Load Gallery</button>
+                        </div>
+                        <div class="text-xs text-gray-400 mb-1">My Presets</div>
+                        <div id="preset-list" class="grid grid-cols-1 gap-2"></div>
+                        <div class="text-xs text-gray-400 mt-3 mb-1">Gallery Presets</div>
+                        <div id="gallery-list" class="grid grid-cols-1 gap-2"></div>
+                    </div>
+
+                    <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                        <h4 class="font-bold mb-2">Plugin Manifest (Experimental)</h4>
+                        <p class="text-sm text-gray-400">Define a panel extension with a manifest JSON. This is a safe, structured way for creators to extend the IDE.</p>
+                        <pre class="bg-black p-3 rounded text-xs text-green-400 border border-gray-700 overflow-x-auto">
+{
+  "name": "Ares FX Pack",
+  "version": "0.1.0",
+  "panels": [
+    {
+      "id": "ares-fx",
+      "title": "Ares FX",
+      "type": "markdown",
+      "content": "Controls for crimson glitch layers"
+    }
+  ]
+}
+                        </pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- 1. STATE & PERSISTENCE ---
+        let currentTab = 'hydra';
+        let editor;
+        
+        const defaultSession = {
+            hydraCode: "osc(4, 0.1, 1.2).out()",
+            strudelCode: "// Strudel mock environment\\n// Safety chains are active.\\nnote(\\\"c a f e\\\").s(\\\"sine\\\").play()",
+            llmPrompt: "// Ask the Oraculum to generate visuals or audio...\\n// e.g. 'Create a pulsating red ritual circle in Hydra'",
+            prompts: [],
+            version: "1.0",
+            updatedAt: Date.now()
+        };
+
+        const defaultQuest = {
+            xp: 0,
+            badges: [],
+            dailySeed: new Date().toDateString(),
+            quests: [
+                { id: 'q1', title: 'First Invocation', desc: 'Evaluate Hydra code for the first time.', done: false, xp: 50 },
+                { id: 'q2', title: 'Sonic Mastery', desc: 'Evaluate Strudel code.', done: false, xp: 50 },
+                { id: 'q3', title: 'Oraculum Consultation', desc: 'Invoke the LLM assistant.', done: false, xp: 100 }
+            ]
+        };
+
+        let session = JSON.parse(localStorage.getItem('codex_session')) || defaultSession;
+        let questData = JSON.parse(localStorage.getItem('codex_quests')) || defaultQuest;
+
+        // Reset daily quests if date changed
+        if (questData.dailySeed !== new Date().toDateString()) {
+            questData.dailySeed = new Date().toDateString();
+            questData.quests.forEach(q => q.done = false);
+            saveQuests();
+        }
+
+        function saveSession() {
+            session.updatedAt = Date.now();
+            if (currentTab === 'hydra') session.hydraCode = editor.getValue();
+            if (currentTab === 'strudel') session.strudelCode = editor.getValue();
+            if (currentTab === 'llm') session.llmPrompt = editor.getValue();
+            localStorage.setItem('codex_session', JSON.stringify(session));
+            document.getElementById('save-status').innerText = 'Saved ' + new Date().toLocaleTimeString();
+        }
+
+        function saveQuests() {
+            localStorage.setItem('codex_quests', JSON.stringify(questData));
+            updateQuestUI();
+        }
+
+        function addXP(amount, questId = null) {
+            if (questId) {
+                const q = questData.quests.find(x => x.id === questId);
+                if (q && q.done) return; 
+                if (q) q.done = true;
+            }
+            questData.xp += amount;
+            saveQuests();
+            
+            // Visual pop
+            const xpEl = document.getElementById('xp-display');
+            xpEl.classList.add('text-white', 'scale-110');
+            setTimeout(() => xpEl.classList.remove('text-white', 'scale-110'), 300);
+        }
+
+        function updateQuestUI() {
+            document.getElementById('xp-display').innerText = `${questData.xp} XP`;
+            const qList = document.getElementById('quest-list');
+            qList.innerHTML = '';
+            questData.quests.forEach(q => {
+                const statusColor = q.done ? 'text-green-400 border-green-900/50 bg-green-900/10' : 'text-gray-400 border-gray-700 bg-gray-800';
+                const icon = q.done ? 'ph-check-circle' : 'ph-circle';
+                qList.innerHTML += `
+                    <div class="p-4 border rounded flex items-center justify-between ${statusColor}">
+                        <div>
+                            <h3 class="font-bold text-lg flex items-center gap-2"><i class="ph ${icon}"></i> ${q.title}</h3>
+                            <p class="text-sm opacity-80">${q.desc}</p>
+                        </div>
+                        <span class="font-bold text-yellow-500">+${q.xp} XP</span>
+                    </div>
+                `;
+            });
+        }
+
+        // --- Preset Sharing / Mod Base ---
+        function loadPresetList() {
+            const list = document.getElementById('preset-list');
+            const raw = localStorage.getItem('codex_presets');
+            const presets = raw ? JSON.parse(raw) : [];
+            list.innerHTML = '';
+            presets.forEach((p, idx) => {
+                const el = document.createElement('div');
+                el.className = 'p-2 rounded border border-gray-700 bg-gray-900 flex justify-between items-center';
+                el.innerHTML = `
+                    <span class="text-sm text-gray-300">${p.name}</span>
+                    <div class="flex gap-2">
+                        <button class="px-2 py-1 text-xs bg-gray-700 rounded" onclick="applyPreset(${idx})">Load</button>
+                        <button class="px-2 py-1 text-xs bg-red-800 rounded" onclick="deletePreset(${idx})">Delete</button>
+                    </div>
+                `;
+                list.appendChild(el);
+            });
+        }
+
+        function savePreset() {
+            const name = document.getElementById('preset-name').value.trim() || `Preset ${Date.now()}`;
+            const preset = {
+                name,
+                hydraCode: session.hydraCode,
+                strudelCode: session.strudelCode,
+                llmPrompt: session.llmPrompt,
+                updatedAt: Date.now()
+            };
+            const raw = localStorage.getItem('codex_presets');
+            const presets = raw ? JSON.parse(raw) : [];
+            presets.unshift(preset);
+            localStorage.setItem('codex_presets', JSON.stringify(presets));
+            loadPresetList();
+        }
+
+        function applyPreset(idx) {
+            const raw = localStorage.getItem('codex_presets');
+            const presets = raw ? JSON.parse(raw) : [];
+            const p = presets[idx];
+            if (!p) return;
+            session.hydraCode = p.hydraCode || session.hydraCode;
+            session.strudelCode = p.strudelCode || session.strudelCode;
+            session.llmPrompt = p.llmPrompt || session.llmPrompt;
+            saveSession();
+            if (currentTab === 'hydra') editor.setValue(session.hydraCode);
+            if (currentTab === 'strudel') editor.setValue(session.strudelCode);
+            if (currentTab === 'llm') editor.setValue(session.llmPrompt);
+        }
+
+        function deletePreset(idx) {
+            const raw = localStorage.getItem('codex_presets');
+            const presets = raw ? JSON.parse(raw) : [];
+            presets.splice(idx, 1);
+            localStorage.setItem('codex_presets', JSON.stringify(presets));
+            loadPresetList();
+        }
+
+        function exportPreset() {
+            const preset = {
+                name: document.getElementById('preset-name').value.trim() || 'CodexPreset',
+                hydraCode: session.hydraCode,
+                strudelCode: session.strudelCode,
+                llmPrompt: session.llmPrompt,
+                version: session.version,
+                updatedAt: Date.now()
+            };
+            const json = JSON.stringify(preset, null, 2);
+            navigator.clipboard.writeText(json).then(() => {
+                document.getElementById('import-json').value = json;
+            });
+        }
+
+        function importPreset() {
+            const raw = document.getElementById('import-json').value.trim();
+            if (!raw) return;
+            try {
+                const preset = JSON.parse(raw);
+                if (!preset.hydraCode || !preset.strudelCode) return;
+                const stored = localStorage.getItem('codex_presets');
+                const presets = stored ? JSON.parse(stored) : [];
+                presets.unshift(preset);
+                localStorage.setItem('codex_presets', JSON.stringify(presets));
+                loadPresetList();
+            } catch (e) {
+                console.error('Invalid preset JSON', e);
+            }
+        }
+
+        async function loadGallery() {
+            const url = document.getElementById('gallery-url').value.trim();
+            if (!url) return;
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (!Array.isArray(data)) return;
+                const list = document.getElementById('gallery-list');
+                list.innerHTML = '';
+                data.forEach((p, idx) => {
+                    const el = document.createElement('div');
+                    el.className = 'p-2 rounded border border-gray-700 bg-gray-900 flex justify-between items-center';
+                    el.innerHTML = `
+                        <span class="text-sm text-gray-300">${p.name || 'Preset ' + (idx + 1)}</span>
+                        <button class="px-2 py-1 text-xs bg-gray-700 rounded" onclick="importGalleryPreset(${idx})">Import</button>
+                    `;
+                    list.appendChild(el);
+                });
+                window._galleryPresets = data;
+            } catch (e) {
+                console.error('Gallery load failed', e);
+            }
+        }
+
+        function importGalleryPreset(idx) {
+            const data = window._galleryPresets || [];
+            const preset = data[idx];
+            if (!preset) return;
+            const stored = localStorage.getItem('codex_presets');
+            const presets = stored ? JSON.parse(stored) : [];
+            presets.unshift(preset);
+            localStorage.setItem('codex_presets', JSON.stringify(presets));
+            loadPresetList();
+        }
+
+        // --- 2. AUDIO SAFETY CHAIN ---
+        let audioCtx;
+        let masterLimiter;
+        let masterAnalyzer;
+        let hpf;
+        let animationFrameId;
+
+        async function initAudio() {
+            if (audioCtx) {
+                if(audioCtx.state === 'suspended') await audioCtx.resume();
+                return;
+            }
+            
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 1. High Pass Filter @ 40Hz (Safety against sub-rumble damage)
+            hpf = audioCtx.createBiquadFilter();
+            hpf.type = 'highpass';
+            hpf.frequency.value = 40;
+
+            // 2. Dynamics Compressor acting as a Brickwall Limiter
+            masterLimiter = audioCtx.createDynamicsCompressor();
+            masterLimiter.threshold.value = -1.0; // clamp near 0 dBFS
+            masterLimiter.knee.value = 0.0;
+            masterLimiter.ratio.value = 20.0; // heavy ratio
+            masterLimiter.attack.value = 0.005; // fast attack
+            masterLimiter.release.value = 0.050; // fast release
+
+            // 3. Analyzer for LUFS proxy
+            masterAnalyzer = audioCtx.createAnalyser();
+            masterAnalyzer.fftSize = 2048;
+
+            // Chain: Source -> HPF -> Limiter -> Analyzer -> Destination
+            hpf.connect(masterLimiter);
+            masterLimiter.connect(masterAnalyzer);
+            masterAnalyzer.connect(audioCtx.destination);
+
+            // If Strudel is present, route Tone.js master into our safety chain
+            if (window.Strudel && Strudel.audioCtx && Strudel.masterGain) {
+                try {
+                    // Disconnect Strudel's master from destination and re-route
+                    Strudel.masterGain.disconnect();
+                    Strudel.masterGain.connect(hpf);
+                } catch (e) {
+                    console.warn("Could not re-route Strudel master gain:", e);
+                }
+            }
+
+            // Start Metering
+            drawMeter();
+
+            document.getElementById('btn-start').classList.add('bg-green-900', 'text-green-100');
+            document.getElementById('btn-start').innerHTML = '<i class="ph ph-check"></i> Audio Active';
+        }
+
+        function drawMeter() {
+            if (!masterAnalyzer) return;
+            const dataArray = new Float32Array(masterAnalyzer.frequencyBinCount);
+            masterAnalyzer.getFloatTimeDomainData(dataArray);
+
+            // Simple RMS calculation as a basic proxy for loudness
+            let sumSquares = 0.0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sumSquares += dataArray[i] * dataArray[i];
+            }
+            const rms = Math.sqrt(sumSquares / dataArray.length);
+            
+            // Convert to dB (roughly)
+            let db = 20 * Math.log10(rms);
+            if (!isFinite(db)) db = -100;
+
+            // Map dB (-60 to 0) to percentage (0 to 100)
+            let percent = Math.max(0, Math.min(100, (db + 60) * (100/60)));
+            
+            document.getElementById('meter-fill').style.width = percent + '%';
+            document.getElementById('meter-value').innerText = db === -100 ? '-∞ dB' : db.toFixed(1) + ' dB';
+
+            animationFrameId = requestAnimationFrame(drawMeter);
+        }
+
+        function stopAll() {
+            // 1. Silence Audio
+            if (audioCtx) {
+                audioCtx.suspend();
+                setTimeout(() => {
+                    document.getElementById('btn-start').classList.remove('bg-green-900', 'text-green-100');
+                    document.getElementById('btn-start').classList.add('bg-purple-900', 'text-purple-100');
+                    document.getElementById('btn-start').innerHTML = '<i class="ph ph-play"></i> Incipe (Start)';
+                }, 100);
+            }
+            
+            // 2. Clear Hydra
+            if (window.hydra) {
+                hydra.eval("solid().out()");
+            }
+
+            console.log("Silentium: All systems stopped.");
+        }
+
+        // --- 3. EDITOR & HYDRA SETUP ---
+        let hydra;
+
+        function initHydra() {
+            const canvas = document.getElementById("hydra-canvas");
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            
+            // Initialize Hydra instance
+            hydra = new Hydra({
+                canvas: canvas,
+                detectAudio: false, // We handle audio separately
+                makeGlobal: true
+            });
+            
+            // Initial render
+            setTimeout(() => {
+                evaluateHydra(session.hydraCode);
+            }, 500);
+        }
+
+        // Configure Monaco Loader
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            
+            // Custom Theme to match Ares Veil
+            monaco.editor.defineTheme('ares-dark', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [
+                    { token: 'comment', foreground: '6272a4', fontStyle: 'italic' },
+                    { token: 'keyword', foreground: 'ff79c6' },
+                    { token: 'number', foreground: 'bd93f9' },
+                    { token: 'string', foreground: 'f1fa8c' },
+                ],
+                colors: {
+                    'editor.background': '#111115',
+                    'editor.lineHighlightBackground': '#1e1e24',
+                    'editorLineNumber.foreground': '#4b4b57',
+                    'editorIndentGuide.background': '#2d2d3a',
+                }
+            });
+
+            editor = monaco.editor.create(document.getElementById('editor-container'), {
+                value: session.hydraCode,
+                language: 'javascript',
+                theme: 'ares-dark',
+                minimap: { enabled: false },
+                fontSize: 14,
+                fontFamily: "'Fira Code', monospace",
+                automaticLayout: true,
+                padding: { top: 16 }
+            });
+
+            // Auto-save on type
+            editor.onDidChangeModelContent(() => {
+                if (currentTab === 'hydra') session.hydraCode = editor.getValue();
+                if (currentTab === 'strudel') session.strudelCode = editor.getValue();
+                if (currentTab === 'llm') session.llmPrompt = editor.getValue();
+                
+                // Debounce save
+                clearTimeout(window.saveTimeout);
+                window.saveTimeout = setTimeout(saveSession, 1000);
+            });
+
+            // Keybinding Ctrl+Enter to Eval
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function() {
+                evaluateCode();
+            });
+
+            initHydra();
+            updateQuestUI();
+            loadPresetList();
+        });
+
+        function switchTab(tab) {
+            // Save current code
+            saveSession();
+
+            // Update UI
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            
+            currentTab = tab;
+            
+            if (tab === 'hydra') {
+                editor.setValue(session.hydraCode);
+                monaco.editor.setModelLanguage(editor.getModel(), 'javascript');
+                document.getElementById('llm-controls').classList.add('hidden');
+                document.getElementById('llm-output').classList.add('hidden');
+                document.getElementById('studio-panel').classList.add('hidden');
+            } else if (tab === 'strudel') {
+                editor.setValue(session.strudelCode);
+                monaco.editor.setModelLanguage(editor.getModel(), 'javascript');
+                document.getElementById('llm-controls').classList.add('hidden');
+                document.getElementById('llm-output').classList.add('hidden');
+                document.getElementById('studio-panel').classList.add('hidden');
+            } else if (tab === 'llm') {
+                editor.setValue(session.llmPrompt);
+                monaco.editor.setModelLanguage(editor.getModel(), 'markdown');
+                document.getElementById('llm-controls').classList.remove('hidden');
+                document.getElementById('llm-output').classList.remove('hidden');
+                document.getElementById('studio-panel').classList.add('hidden');
+            } else if (tab === 'studio') {
+                document.getElementById('llm-controls').classList.add('hidden');
+                document.getElementById('llm-output').classList.add('hidden');
+                document.getElementById('studio-panel').classList.remove('hidden');
+            }
+        }
+
+        // --- 4. EXECUTION & GUARDRAILS ---
+
+        function sanitizeCode(code) {
+            // Basic guardrails to prevent accidental malicious payload execution
+            const forbidden = /document\.|window\.|localStorage|sessionStorage|indexedDB|fetch|XMLHttpRequest/gi;
+            if (forbidden.test(code)) {
+                throw new Error("Security Guardrail: Attempted to access forbidden browser APIs.");
+            }
+            return code;
+        }
+
+        function evaluateHydra(code) {
+            try {
+                const safeCode = sanitizeCode(code);
+                // Hydra exposes functions globally due to makeGlobal: true
+                // Eval is dangerous, but required for live-coding IDEs. Sanitized slightly above.
+                new Function(safeCode)();
+                addXP(10, 'q1'); // Quest 1 trigger
+            } catch (e) {
+                console.error("Hydra Eval Error:", e);
+            }
+        }
+
+        async function evaluateStrudel(code) {
+            if (!audioCtx) {
+                alert("Please initialize audio first via 'Incipe'");
+                return;
+            }
+            try {
+                const safeCode = sanitizeCode(code);
+
+                if (window.Strudel && Strudel.run) {
+                    // Ensure Tone.js/Strudel audio context is started
+                    await Strudel.start();
+                    // Run the Strudel pattern; it returns a disposable
+                    Strudel.run(safeCode);
+                } else {
+                    // Fallback mock tone if Strudel failed to load
+                    const osc = audioCtx.createOscillator();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440 * (Math.random() + 0.5), audioCtx.currentTime);
+                    const gain = audioCtx.createGain();
+                    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+                    osc.connect(gain);
+                    gain.connect(hpf);
+                    osc.start(audioCtx.currentTime);
+                    osc.stop(audioCtx.currentTime + 1);
+                }
+
+                addXP(10, 'q2'); // Quest 2 trigger
+            } catch (e) {
+                console.error("Audio Eval Error:", e);
+            }
+        }
+
+        function evaluateCode() {
+            const code = editor.getValue();
+            if (currentTab === 'hydra') {
+                evaluateHydra(code);
+            } else if (currentTab === 'strudel') {
+                evaluateStrudel(code);
+            } else if (currentTab === 'llm') {
+                invokeLLM();
+            }
+        }
+
+        // --- 5. LLM ORACULUM ---
+
+        async function invokeLLM() {
+            const prompt = editor.getValue();
+            if(!prompt.trim()) return;
+
+            addXP(15, 'q3'); // Quest 3 trigger
+            
+            const history = document.getElementById('chat-history');
+            
+            // Add user prompt
+            history.innerHTML += `
+                <div class="bg-purple-900/30 p-3 rounded border border-purple-900/50 self-end ml-12">
+                    <span class="text-xs text-purple-400 block mb-1">You:</span>
+                    <pre class="font-sans whitespace-pre-wrap">${prompt}</pre>
+                </div>
+            `;
+            
+            // Loading state
+            const loadingId = 'load-' + Date.now();
+            history.innerHTML += `
+                <div id="${loadingId}" class="bg-gray-800 p-3 rounded border border-gray-700 self-start mr-12 text-gray-400">
+                    <i class="ph ph-spinner animate-spin"></i> Consulting Oraculum...
+                </div>
+            `;
+            
+            // Scroll to bottom
+            const outputPane = document.getElementById('llm-output');
+            outputPane.scrollTop = outputPane.scrollHeight;
+
+            // Simulated LLM Response (since we don't have a real API key injected)
+            setTimeout(() => {
+                document.getElementById(loadingId).remove();
+                
+                // Generate a ritualistic response based on the prompt
+                let responseCode = "";
+                let responseText = "The void answers. ";
+                
+                if (prompt.toLowerCase().includes('red') || prompt.toLowerCase().includes('circle')) {
+                    responseText += "A crimson sigil forms.";
+                    responseCode = "osc(10, 0.1, 2)\\n  .color(1, 0, 0)\\n  .kaleid(4)\\n  .out()";
+                } else if (prompt.toLowerCase().includes('audio') || prompt.toLowerCase().includes('strudel')) {
+                    responseText += "A resonant chant echoes.";
+                    responseCode = "// note(\\\"c3 e3 g3\\\").play()";
+                } else {
+                    responseText += "Fractal geometries emerge from the noise.";
+                    responseCode = "noise(2, 0.1)\\n  .color(0.5, 0.2, 0.8)\\n  .modulate(osc(4).rotate(1.5))\\n  .out()";
+                }
+
+                history.innerHTML += `
+                    <div class="bg-gray-800 p-3 rounded border border-gray-700 self-start mr-12">
+                        <span class="text-xs text-gray-400 block mb-1 ritual-font">Oraculum:</span>
+                        <p class="mb-2 font-sans">${responseText}</p>
+                        <pre class="bg-black p-2 rounded text-sm text-green-400 border border-gray-700 overflow-x-auto">${responseCode}</pre>
+                    </div>
+                `;
+                
+                outputPane.scrollTop = outputPane.scrollHeight;
+
+                // Auto-Exec Guardrail Logic
+                const autoExec = document.getElementById('auto-exec-toggle').checked;
+                if (autoExec && responseCode) {
+                    // Try to determine if it's hydra or strudel. For demo, we assume hydra if it contains '.out()'
+                    if (responseCode.includes('.out()')) {
+                        console.log("Auto-executing generated Hydra code...");
+                        evaluateHydra(responseCode);
+                    }
+                }
+
+            }, 1500);
+        }
+
+        // --- 6. UI TOGGLES ---
+        function toggleQuests() {
+            const overlay = document.getElementById('quest-overlay');
+            if (overlay.classList.contains('hidden')) {
+                overlay.classList.remove('hidden');
+                overlay.classList.add('flex');
+            } else {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex');
+            }
+        }
+
+        // --- 7. CAPTURE / RECORDING ---
+        let captureStream;
+        let recorder;
+        let chunks = [];
+        let trackingOn = false;
+        let faceLandmarker;
+        let trackCanvas, trackCtx, trackVideo;
+        let maskCanvas, maskCtx;
+
+        async function initCapture() {
+            try {
+                captureStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                const video = document.getElementById('capture-preview');
+                video.srcObject = captureStream;
+                document.getElementById('record-status').innerText = 'Devices ready';
+                initTracking(video);
+            } catch (e) {
+                document.getElementById('record-status').innerText = 'Device access denied';
+                console.error(e);
+            }
+        }
+
+        function startRecording() {
+            if (!captureStream) {
+                document.getElementById('record-status').innerText = 'Init devices first';
+                return;
+            }
+            chunks = [];
+            recorder = new MediaRecorder(captureStream, { mimeType: 'video/webm' });
+            recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const link = document.getElementById('download-link');
+                link.href = url;
+                link.classList.remove('hidden');
+                document.getElementById('record-status').innerText = 'Recording saved';
+            };
+            recorder.start();
+            document.getElementById('record-status').innerText = 'Recording...';
+        }
+
+        function stopRecording() {
+            if (recorder && recorder.state !== 'inactive') {
+                recorder.stop();
+            }
+        }
+
+        function toggleTracking() {
+            trackingOn = !trackingOn;
+            document.getElementById('track-status').innerText = 'Tracking: ' + (trackingOn ? 'On' : 'Off');
+        }
+
+        function openStrudel() {
+            window.open('https://strudel.cc', '_blank');
+        }
+        function openHydra() {
+            window.open('https://hydra.ojack.xyz', '_blank');
+        }
+
+        async function initTracking(videoEl) {
+            try {
+                trackVideo = videoEl;
+                trackCanvas = document.getElementById('track-overlay');
+                trackCtx = trackCanvas.getContext('2d');
+                maskCanvas = document.getElementById('mask-overlay');
+                maskCtx = maskCanvas.getContext('2d');
+                const vision = await FilesetResolver.forVisionTasks(
+                    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
+                );
+                faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+                    baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task' },
+                    outputFaceBlendshapes: false,
+                    numFaces: 1
+                });
+                trackLoop();
+            } catch (e) {
+                console.error('Tracking init failed', e);
+            }
+        }
+
+        async function trackLoop() {
+            if (!faceLandmarker || !trackVideo) return;
+            if (!trackingOn) {
+                requestAnimationFrame(trackLoop);
+                return;
+            }
+            const width = trackCanvas.clientWidth;
+            const height = trackCanvas.clientHeight;
+            trackCanvas.width = width;
+            trackCanvas.height = height;
+            trackCtx.drawImage(trackVideo, 0, 0, width, height);
+            // keep mask overlay in sync with video size
+            maskCanvas.width = trackVideo.videoWidth || width;
+            maskCanvas.height = trackVideo.videoHeight || height;
+            const results = await faceLandmarker.detectForVideo(trackVideo, performance.now());
+            if (results.faceLandmarks && results.faceLandmarks.length) {
+                const lm = results.faceLandmarks[0];
+                trackCtx.strokeStyle = '#7cf4ff';
+                trackCtx.lineWidth = 1;
+                for (const p of lm) {
+                    trackCtx.beginPath();
+                    trackCtx.arc(p.x * width, p.y * height, 1.5, 0, Math.PI * 2);
+                    trackCtx.stroke();
+                }
+
+                // Simple mask overlay: draw a glowing halo over the eyes + mouth
+                maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+                const eyeLeft = lm[33], eyeRight = lm[263], mouth = lm[13];
+                if (eyeLeft && eyeRight) {
+                    const cx = (eyeLeft.x + eyeRight.x) / 2 * maskCanvas.width;
+                    const cy = (eyeLeft.y + eyeRight.y) / 2 * maskCanvas.height;
+                    const dx = Math.abs(eyeRight.x - eyeLeft.x) * maskCanvas.width;
+                    maskCtx.strokeStyle = 'rgba(124,244,255,0.9)';
+                    maskCtx.lineWidth = 4;
+                    maskCtx.shadowColor = 'rgba(124,244,255,0.6)';
+                    maskCtx.shadowBlur = 12;
+                    maskCtx.beginPath();
+                    maskCtx.ellipse(cx, cy, dx * 0.8, dx * 0.35, 0, 0, Math.PI * 2);
+                    maskCtx.stroke();
+                }
+                if (mouth) {
+                    const mx = mouth.x * maskCanvas.width;
+                    const my = mouth.y * maskCanvas.height;
+                    maskCtx.strokeStyle = 'rgba(255,59,129,0.9)';
+                    maskCtx.lineWidth = 3;
+                    maskCtx.shadowColor = 'rgba(255,59,129,0.6)';
+                    maskCtx.shadowBlur = 10;
+                    maskCtx.beginPath();
+                    maskCtx.arc(mx, my, 18, 0, Math.PI * 2);
+                    maskCtx.stroke();
+                }
+            }
+            requestAnimationFrame(trackLoop);
+        }
+        
+        // Window Resize handler for Canvas/Monaco
+        window.addEventListener('resize', () => {
+            if (editor) editor.layout();
+            const canvas = document.getElementById("hydra-canvas");
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        });
+
+    </script>
+</body>
+</html>

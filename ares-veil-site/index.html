@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ares Veil · 144.72 Codex</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="hero__glow"></div>
+    <div class="hero__content">
+      <p class="eyebrow">Dark Synthwave · Ambient · Chiptune · Healing Frequency</p>
+      <h1>Ares Veil: 144.72 Codex</h1>
+      <p class="lede">
+        A sonic veil between worlds—Mars transmissions decoded into retro-synth rituals for willpower,
+        inner fire, and warrior calm. Core frequency: <strong>144.72 Hz</strong> (Mars Cosmic Octave).
+      </p>
+      <div class="cta-row">
+        <button id="copy-tags" class="btn primary">Copy Global Tags</button>
+        <span class="hint">Adds the Suno modifiers to your clipboard</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="panel">
+      <div class="panel__head">
+        <div>
+          <p class="eyebrow">Tracklist</p>
+          <h2>Generation Prompts</h2>
+        </div>
+        <span class="badge">144.72 Hz</span>
+      </div>
+      <div id="tracks" class="track-list"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head">
+        <p class="eyebrow">Visual Identity</p>
+        <h2>Cover Prompts</h2>
+      </div>
+      <div class="cover-prompts">
+        <div class="card">
+          <h3>Primary</h3>
+          <p id="cover-primary">
+            Cyber-Baroque illustration of a marble warrior goddess, face obscured by a glowing crimson holographic veil;
+            desolate Martian landscape with retro 80s synthwave grid lines; dark red, gold, deep black; glitch art; 4k; hyper-detailed.
+          </p>
+          <button data-copy="#cover-primary" class="btn ghost">Copy</button>
+        </div>
+        <div class="card">
+          <h3>Minimalist</h3>
+          <p id="cover-minimal">
+            Glowing crimson tuning fork striking a dark metallic red planet; concentric wireframe ripples visualizing 144.72 Hz; dark synthwave aesthetic; moody lighting; deep shadows.
+          </p>
+          <button data-copy="#cover-minimal" class="btn ghost">Copy</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head">
+        <p class="eyebrow">Latin Notes</p>
+        <h2>Grammar of the Codex</h2>
+      </div>
+      <ul class="latin">
+        <li><strong>Pulsus Ignis</strong> — Pulse of Fire (genitive: ignis)</li>
+        <li><strong>Fornax Cruenta</strong> — Crimson Forge (adj. matches feminine noun)</li>
+        <li><strong>Velum Martis</strong> — Veil of Mars (genitive: Martis)</li>
+        <li><strong>Descensus Voluntatis</strong> — Descent of Will (genitive: voluntatis)</li>
+        <li><strong>Ritus Horizontis Rubri</strong> — Ritual of the Red Horizon (double genitive)</li>
+        <li><strong>Ascensus Deae</strong> — Ascent of the Goddess (genitive: deae)</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head">
+        <p class="eyebrow">Post-Production</p>
+        <h2>Workflow</h2>
+      </div>
+      <ol class="steps">
+        <li>Download Suno outputs as WAV (highest quality).</li>
+        <li>Frequency check in your DAW; if needed, layer a low 144.72 Hz sine under each track.</li>
+        <li>Crossfade 5–10 seconds between tracks for a seamless ritual playthrough.</li>
+      </ol>
+    </section>
+
+    <section class="panel" id="realtime">
+      <div class="panel__head">
+        <p class="eyebrow">Live Code</p>
+        <h2>Real-Time AV Ritual</h2>
+      </div>
+      <p class="lede" style="margin:0 0 12px;">
+        Browser-based Strudel (TidalCycles JS) + Hydra. Preloaded with Ares ignition: ~144 Hz drone, synthwave arps, crimson glitch fractals. Edit live, screen-record for Mars-themed videos.
+      </p>
+      <div class="live-grid">
+        <div>
+          <p class="eyebrow">How to play</p>
+          <ul class="steps">
+            <li>Press ▶ in Strudel to start audio (Chrome recommended).</li>
+            <li>Edit the code in the left pane to mutate music; Hydra visuals update instantly.</li>
+            <li>Use built-in audio detection to drive visuals; record the browser window for output.</li>
+          </ul>
+        </div>
+        <iframe
+          title="Ares Veil Live Code"
+          loading="lazy"
+          src="https://strudel.cc/?%2F%2F%20Ares%20Veil%20Pattern%20-%20Dark%20Synthwave%20with%20144Hz%20drone%0Aawait%20initHydra%28%7BdetectAudio%3Atrue%7D%29%3B%0A%2F%2F%20Music%20Pattern%0Astack%28%0A%20%20note%28%22c2%20eb2%20g2%20bb2%22%29.sine%28%29.slow%284%29%2C%20%2F%2F%20~144Hz%20drone%20approx%0A%20%20%22bd%20%3Csd%20hh%3E%22.drum%28%29%2C%0A%20%20note%28%22c3%20eb4%20g3%20bb4%22.fast%282%29%29.synth%28%29.arpeggio%28%29%0A%29.room%280.5%29.reverb%281%29.out%28%29%3B%0A%2F%2F%20Hydra%20Visuals%20-%20Crimson%20Glitch%20Fractal%0Aosc%287%2C-0.125%29.modulate%28voronoi%281%29%29.diff%28voronoi%281%29.mult%28gradient%28-1%29.luma%280.125%29%29%29%0A%20%20.luma%280.125%29%0A%20%20.add%28shape%287%2C0.5%29.mult%28voronoi%2810%2C2%29.blend%28o0%29.diff%28gradient%281%29%29.modulate%28voronoi%28%29%29%29%29%0A%20%20.scrollY%28-0.1%29%0A%20%20.scrollX%280.125%29%0A%20%20.blend%28o0%29%0A%20%20.out%28%29%3B">
+        </iframe>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Ares Veil · Mars Cosmic Octave · 144.72 Hz · Crafted for inner fire & victorious calm.
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

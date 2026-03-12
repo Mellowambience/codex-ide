@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ares Veil Companion · Agentic Ritual Chamber</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background: #05060b; }
+    .dual { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    textarea { width: 100%; min-height: 90px; background: #0b0d16; border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 10px; }
+    #agent-output { white-space: pre-wrap; font-family: "JetBrains Mono", "Courier New", monospace; color: var(--accent2); background: #0a0c14; border: 1px solid var(--border); padding: 10px; border-radius: 10px; min-height: 80px; }
+    #hydra-canvas { width: 100%; min-height: 340px; border: 1px solid var(--border); border-radius: 12px; background: #05060b; }
+    .warn { color: var(--muted); font-size: 13px; }
+    .status-wrap { display:flex; gap:12px; margin-top:8px; }
+    .status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #555; }
+    .dot.on { background: #7cf4ff; box-shadow: 0 0 8px #7cf4ff; }
+  </style>
+  <script src="https://strudel.cc/strudel.js"></script>
+  <script src="https://unpkg.com/hydra-synth"></script>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero__glow"></div>
+    <div class="hero__content">
+      <p class="eyebrow">Agentic Companion · Live Code</p>
+      <h1>Ares Veil: Agentic Ritual Chamber</h1>
+      <p class="lede">
+        Text prompt → Strudel music + Hydra visuals, all in-browser, open-source, Mars-coded at <strong>144.72 Hz</strong>.
+        Use the companion to mutate the veil in real time—no cloud, no paywall.
+      </p>
+      <div class="cta-row">
+        <button class="btn primary" onclick="boot()">Init Audio + Visuals</button>
+        <span class="hint">Chrome recommended. Click once to unlock audio.</span>
+      </div>
+      <div class="status-wrap">
+        <div class="status"><span class="dot" id="dot-audio"></span>audio</div>
+        <div class="status"><span class="dot" id="dot-vis"></span>visuals</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid" style="padding:20px">
+    <section class="panel">
+      <div class="panel__head">
+        <p class="eyebrow">Prompt → Ritual</p>
+        <h2>Agentic Generator</h2>
+      </div>
+      <div class="dual">
+        <div>
+          <label class="eyebrow">Describe the ritual</label>
+          <textarea id="prompt-input" placeholder="dark synthwave mars ritual 144hz, chiptune embers, goddess ascent"></textarea>
+          <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn primary" onclick="generate()">Generate & Play</button>
+            <button class="btn ghost" onclick="stopAudio()">Stop All</button>
+          </div>
+          <p class="warn">Agent maps keywords to Strudel + Hydra templates, always layering a 144.72 Hz sine bed for the Mars octave.</p>
+        </div>
+        <div>
+          <label class="eyebrow">Agent output</label>
+          <div id="agent-output">Ready.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head">
+        <p class="eyebrow">Visuals</p>
+        <h2>Hydra Canvas</h2>
+      </div>
+      <canvas id="hydra-canvas"></canvas>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head">
+        <p class="eyebrow">Shortcuts</p>
+        <h2>Live Code Tips</h2>
+      </div>
+      <ul class="steps">
+        <li>Use Ctrl+Alt+G for the ghost-flick overlay (same Easter egg).</li>
+        <li>Edit Strudel or Hydra snippets in the output box and re-run.</li>
+        <li>Record the tab for Mars-themed video loops.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">Ares Veil Agentic · Open browser rituals · 144.72 Hz</footer>
+
+  <script>
+    let hydra, audioStarted = false;
+
+    function setStatus(kind, on) {
+      const el = document.getElementById('dot-' + kind);
+      if (el) el.classList.toggle('on', !!on);
+    }
+
+    function boot() {
+      if (!hydra) {
+        hydra = new Hydra({ canvas: document.getElementById('hydra-canvas'), detectAudio: true });
+      }
+      audioStarted = true;
+      setStatus('audio', true);
+      setStatus('vis', true);
+      generate();
+    }
+
+    function baseMusic() {
+      return `
+        stack(
+          sine().freq(144.72).gain(0.12).slow(2),
+          note("a1 c2 e2 g2").saw().slow(4).gain(0.3),
+          "bd*2 <cp hh>".drum().room(0.25).gain(0.2),
+          note("a3 c4 e3 g4".fast(3)).synth().arpeggio().gain(0.25)
+        )
+        .compress(0.35, 0.7)
+        .hpf(40)
+        .room(0.5).reverb(0.9)
+        .gain(0.9)
+        .out();
+      `;
+    }
+
+    function musicFor(prompt) {
+      let code = baseMusic();
+      if (prompt.includes("chiptune")) {
+        code = `
+          stack(
+            sine().freq(144.72).gain(0.12),
+            note("c2 g2 c3 g3").pulse().slow(2).gain(0.28),
+            "bd*2 hh sd hh".drum().room(0.2).gain(0.22),
+            note("c4 e4 g4 b4".fast(4)).chip().gain(0.22)
+          )
+          .compress(0.35, 0.7)
+          .hpf(40)
+          .reverb(0.7)
+          .gain(0.9)
+          .out();
+        `;
+      }
+      if (prompt.includes("ambient")) {
+        code = `
+          stack(
+            sine().freq(144.72).gain(0.15),
+            note("f2 c3 g2").sine().slow(6).gain(0.28),
+            "bd".drum().slow(4).room(0.4).gain(0.18),
+            note("f3 a3 c4").tri().slow(3).gain(0.22)
+          )
+          .compress(0.3, 0.65)
+          .hpf(40)
+          .reverb(1)
+          .gain(0.9)
+          .out();
+        `;
+      }
+      if (prompt.includes("war") || prompt.includes("mars") || prompt.includes("goddess")) {
+        code += `\nnote("a1 e2 d2").saw().slow(8).gain(0.18).distort(0.15).out();`;
+      }
+      return code;
+    }
+
+    function visualsFor(prompt) {
+      if (!hydra) return "";
+      if (prompt.includes("glitch") || prompt.includes("hyperpop")) {
+        return `
+          osc(10, -0.15).modulate(voronoi(5,0.3)).color(1,0,0.2)
+          .add(noise(3,0.2).color(0.2,0.8,1).mult(gradient(1)).luma(0.5))
+          .scrollX(0.1).scrollY(-0.05).blend(o0,0.5).out();
+        `;
+      }
+      return `
+        osc(7,-0.12).modulate(voronoi(1))
+        .diff(voronoi(1).mult(gradient(-1).luma(0.125)))
+        .luma(0.125)
+        .add(shape(7,0.5).mult(voronoi(10,2).blend(o0).diff(gradient(1)).modulate(voronoi())))
+        .scrollY(-0.1).scrollX(0.12).blend(o0,0.6).out();
+      `;
+    }
+
+    function generate() {
+      if (!audioStarted) return;
+      const prompt = document.getElementById('prompt-input').value.toLowerCase();
+      const music = musicFor(prompt);
+      const vis = visualsFor(prompt);
+      document.getElementById('agent-output').innerText =
+        "Strudel:\n" + music.trim() + "\n\nHydra:\n" + vis.trim();
+      try { eval(music); } catch (e) { console.error(e); }
+      try { hydra.eval(vis); } catch (e) { console.error(e); }
+    }
+
+    function stopAudio() {
+      if (typeof silence === "function") silence();
+      if (hydra) hydra.eval("solid().out()");
+      setStatus('audio', false);
+      setStatus('vis', false);
+    }
+  </script>
+</body>
+</html>
